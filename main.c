@@ -6,7 +6,7 @@
 int main(int argc, char *argv[]) {
   printf("========================================\n");
   printf("  Genetic Rescue Operations - Test\n");
-  printf("  Phase 3: Path Generation\n");
+  printf("   Path Generation\n");
   printf("========================================\n\n");
 
   // Initialize random seed
@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
 
   // Final summary
   printf("\n========================================\n");
-  printf("  Phase 3 Test Completed Successfully! ✓\n");
+  printf(" Test Completed Successfully! \n");
   printf("========================================\n\n");
 
   printf("Summary:\n");
@@ -169,4 +169,5 @@ int main(int argc, char *argv[]) {
   printf("Memory cleaned up. Exiting.\n");
 
   return 0;
+
 }
