@@ -1,0 +1,70 @@
+# ===================================================
+# Genetic Algorithm Rescue Operations Configuration
+# ===================================================
+
+# ----- Grid Environment Settings -----
+# 3D Grid dimensions (X, Y, Z)
+GRID_X=15
+GRID_Y=15
+GRID_Z=4
+
+# Number of survivors to rescue
+NUM_SURVIVORS=8
+
+# Percentage of grid cells that are obstacles (0-100)
+OBSTACLE_PERCENT=25
+
+# Robot starting position (x, y, z)
+START_X=0
+START_Y=0
+START_Z=0
+
+# ----- Genetic Algorithm Parameters -----
+# Population size (number of paths/chromosomes)
+POPULATION_SIZE=50
+
+# Maximum number of generations
+MAX_GENERATIONS=100
+
+# Mutation rate (0.0 to 1.0) - probability of mutation
+MUTATION_RATE=0.05
+
+# Crossover rate (0.0 to 1.0) - probability of crossover
+CROSSOVER_RATE=0.85
+
+# Elitism percentage (0-100) - top % solutions to preserve
+ELITISM_PERCENT=10
+
+# Tournament size for selection
+TOURNAMENT_SIZE=5
+
+# ----- Fitness Function Weights -----
+# Weight for survivors reached
+W1_SURVIVORS=15.0
+
+# Weight for coverage area
+W2_COVERAGE=8.0
+
+# Weight for path length (negative impact)
+W3_LENGTH=1.5
+
+# Weight for risk/obstacles (negative impact)
+W4_RISK=3.0
+
+# ----- Multi-Processing Settings -----
+# Number of worker processes
+NUM_WORKERS=4
+
+# ----- Termination Criteria -----
+# Stop if no improvement for N generations
+STAGNATION_LIMIT=20
+
+# Maximum time limit in seconds (0 = no limit)
+TIME_LIMIT=300
+
+# ----- Output Settings -----
+# Print detailed progress (1=yes, 0=no)
+VERBOSE=1
+
+# Save generation statistics (1=yes, 0=no)
+SAVE_STATS=1

@@ -1,0 +1,76 @@
+cat > Makefile << 'EOF'
+# ===================================================
+# Makefile for Genetic Algorithm Rescue Operations
+# ===================================================
+
+CC = gcc
+CFLAGS = -Wall -Wextra -std=c11 -pthread
+LDFLAGS = -lm -lrt -pthread
+
+SRC_DIR = src
+OBJ_DIR = obj
+BIN_DIR = .
+CONFIG_DIR = config
+OUTPUT_DIR = output
+
+TARGET = $(BIN_DIR)/rescue_ga
+
+SOURCES = $(wildcard $(SRC_DIR)/*.c)
+OBJECTS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SOURCES))
+HEADERS = $(wildcard $(SRC_DIR)/*.h)
+
+all: directories $(TARGET)
+
+directories:
+	@mkdir -p $(OBJ_DIR)
+	@mkdir -p $(OUTPUT_DIR)
+	@echo "Directories created/verified."
+
+$(TARGET): $(OBJECTS)
+	@echo "Linking object files..."
+	$(CC) $(OBJECTS) -o $(TARGET) $(LDFLAGS)
+	@echo "Build successful! Executable: $(TARGET)"
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(HEADERS)
+	@echo "Compiling $<..."
+	$(CC) $(CFLAGS) -c $< -o $@
+
+debug: CFLAGS += -g -DDEBUG
+debug: clean all
+	@echo "Debug build complete."
+
+release: CFLAGS += -O3 -DNDEBUG
+release: clean all
+	@echo "Release build complete."
+
+clean:
+	@echo "Cleaning build files..."
+	@rm -rf $(OBJ_DIR)
+	@rm -f $(TARGET)
+	@rm -f $(OUTPUT_DIR)/*.txt
+	@echo "Clean complete."
+
+cleanall: clean
+	@rm -rf $(OUTPUT_DIR)
+	@echo "All files cleaned."
+
+run: $(TARGET)
+	@echo "Running program..."
+	./$(TARGET) $(CONFIG_DIR)/config.txt
+
+valgrind: $(TARGET)
+	valgrind --leak-check=full --show-leak-kinds=all ./$(TARGET) $(CONFIG_DIR)/config.txt
+
+help:
+	@echo "Available targets:"
+	@echo "  all      - Build the project (default)"
+	@echo "  debug    - Build with debug symbols"
+	@echo "  release  - Build with optimizations"
+	@echo "  clean    - Remove build files"
+	@echo "  cleanall - Remove all generated files"
+	@echo "  run      - Build and run with default config"
+	@echo "  valgrind - Run with memory leak detection"
+	@echo "  help     - Show this help message"
+
+.PHONY: all directories debug release clean cleanall run valgrind help
+EOF
