@@ -29,10 +29,6 @@ void sem_signal(int sem_id, int sem_num);
 void worker_process(int worker_id, int shm_id, int sem_id, 
                    const Grid* grid, const Config* config);
 
-// ===== Master Process =====
-void master_process(Path** population, int pop_size, const Grid* grid, 
-                   const Config* config, int shm_id, int sem_id);
-
 // ===== Process Pool Management =====
 pid_t* create_worker_pool(int num_workers, int shm_id, int sem_id,
                           const Grid* grid, const Config* config);
