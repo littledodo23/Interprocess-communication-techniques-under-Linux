@@ -17,7 +17,10 @@ float calculate_fitness(Path *path, const Grid *grid, const Config *config) {
   float fitness = config->w1_survivors * survivors +
                   config->w2_coverage * coverage - config->w3_length * length -
                   config->w4_risk * risk;
-
+                config->w4_risk * risk;
+  printf("DEBUG => survivors=%.0f  coverage=%.2f  length=%.0f  risk=%.2f  FITNESS=%.2f\n",
+       survivors, coverage, length, risk, fitness);
+fflush(stdout);
   return fitness;
 }
 
@@ -226,4 +229,5 @@ float get_worst_fitness(Path **population, int pop_size) {
     }
   }
   return worst;
+
 }
