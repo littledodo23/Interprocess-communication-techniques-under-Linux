@@ -40,7 +40,7 @@ TOURNAMENT_SIZE=5
 
 # ----- Fitness Function Weights -----
 # Weight for survivors reached
-W1_SURVIVORS=15.0
+W1_SURVIVORS=100.0
 
 # Weight for coverage area
 W2_COVERAGE=8.0
@@ -67,4 +67,5 @@ TIME_LIMIT=300
 VERBOSE=1
 
 # Save generation statistics (1=yes, 0=no)
+
 SAVE_STATS=1
