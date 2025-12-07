@@ -14,7 +14,6 @@ Path *tournament_selection(Path **population, int pop_size,
   Path *best = NULL;
   float best_fitness = -FLT_MAX;
 
-  // Randomly select tournament_size individuals and pick the best
   for (int i = 0; i < tournament_size; i++) {
     int idx = random_int(0, pop_size - 1);
 
@@ -42,6 +41,9 @@ Path **select_parents(Path **population, int pop_size, const Config *config,
 // ===== Single Point Crossover =====
 Path *single_point_crossover(const Path *parent1, const Path *parent2,
                               const Grid *grid) {
+  // Suppress unused parameter warning
+  (void)grid;
+  
   if (!parent1 || !parent2) {
     return parent1 ? clone_path(parent1) : NULL;
   }
@@ -50,24 +52,19 @@ Path *single_point_crossover(const Path *parent1, const Path *parent2,
     return clone_path(parent1);
   }
 
-  // Choose crossover point for each parent
   int point1 = random_int(1, parent1->length - 1);
   int point2 = random_int(1, parent2->length - 1);
 
-  // Create child path
   Path *child = create_path(parent1->length + parent2->length);
 
-  // Copy first part from parent1
   for (int i = 0; i < point1 && i < parent1->length; i++) {
     add_coordinate_to_path(child, parent1->coordinates[i]);
   }
 
-  // Copy second part from parent2
   for (int i = point2; i < parent2->length; i++) {
     add_coordinate_to_path(child, parent2->coordinates[i]);
   }
 
-  // If child is empty or too short, clone parent1
   if (child->length < 2) {
     free_path(child);
     return clone_path(parent1);
@@ -83,7 +80,6 @@ Path *two_point_crossover(const Path *parent1, const Path *parent2,
     return single_point_crossover(parent1, parent2, grid);
   }
 
-  // Choose two crossover points for each parent
   int p1_start = random_int(0, parent1->length / 2);
   int p1_end = random_int(p1_start + 1, parent1->length - 1);
 
@@ -92,17 +88,14 @@ Path *two_point_crossover(const Path *parent1, const Path *parent2,
 
   Path *child = create_path(MAX_PATH_LENGTH);
 
-  // Part 1: Beginning of parent1
   for (int i = 0; i < p1_start && i < parent1->length; i++) {
     add_coordinate_to_path(child, parent1->coordinates[i]);
   }
 
-  // Part 2: Middle section from parent2
   for (int i = p2_start; i < p2_end && i < parent2->length; i++) {
     add_coordinate_to_path(child, parent2->coordinates[i]);
   }
 
-  // Part 3: End of parent1
   for (int i = p1_end; i < parent1->length; i++) {
     add_coordinate_to_path(child, parent1->coordinates[i]);
   }
@@ -118,6 +111,9 @@ Path *two_point_crossover(const Path *parent1, const Path *parent2,
 // ===== Uniform Crossover =====
 Path *uniform_crossover(const Path *parent1, const Path *parent2,
                         const Grid *grid) {
+  // Suppress unused parameter warning
+  (void)grid;
+  
   if (!parent1 || !parent2) {
     return parent1 ? clone_path(parent1) : NULL;
   }
@@ -127,7 +123,6 @@ Path *uniform_crossover(const Path *parent1, const Path *parent2,
   int min_length = parent1->length < parent2->length ? parent1->length
                                                       : parent2->length;
 
-  // For each position, randomly choose from either parent
   for (int i = 0; i < min_length; i++) {
     if (random_float(0.0, 1.0) < 0.5) {
       add_coordinate_to_path(child, parent1->coordinates[i]);
@@ -136,7 +131,6 @@ Path *uniform_crossover(const Path *parent1, const Path *parent2,
     }
   }
 
-  // Add remaining from longer parent
   if (parent1->length > min_length) {
     for (int i = min_length; i < parent1->length; i++) {
       add_coordinate_to_path(child, parent1->coordinates[i]);
@@ -175,27 +169,22 @@ void mutate_insert_random(Path *path, const Grid *grid) {
   int insert_pos = random_int(1, path->length - 1);
   Coordinate current = path->coordinates[insert_pos];
 
-  // Get neighbors of current position
   Coordinate neighbors[6];
   int neighbor_count = get_neighbors(grid, current, neighbors);
 
   if (neighbor_count == 0)
     return;
 
-  // Choose a random neighbor
   Coordinate new_coord = neighbors[random_int(0, neighbor_count - 1)];
 
-  // Make space for new coordinate
   if (path->length >= path->capacity) {
-    return; // Can't insert
+    return;
   }
 
-  // Shift coordinates to make room
   for (int i = path->length; i > insert_pos; i--) {
     path->coordinates[i] = path->coordinates[i - 1];
   }
 
-  // Insert new coordinate
   path->coordinates[insert_pos] = new_coord;
   path->length++;
 }
@@ -208,7 +197,6 @@ void mutate_swap_segments(Path *path) {
   int pos1 = random_int(1, path->length - 2);
   int pos2 = random_int(pos1 + 1, path->length - 1);
 
-  // Swap the coordinates
   Coordinate temp = path->coordinates[pos1];
   path->coordinates[pos1] = path->coordinates[pos2];
   path->coordinates[pos2] = temp;
@@ -219,20 +207,17 @@ void mutate_remove_loop(Path *path) {
   if (!path || path->length < 3)
     return;
 
-  // Find and remove simple loops (where path revisits a coordinate)
   for (int i = 0; i < path->length - 2; i++) {
     for (int j = i + 2; j < path->length; j++) {
       if (coordinates_equal(path->coordinates[i], path->coordinates[j])) {
-        // Found a loop from i to j, remove it
         int loop_size = j - i;
 
-        // Shift everything after j backwards
         for (int k = i + 1; k < path->length - loop_size; k++) {
           path->coordinates[k] = path->coordinates[k + loop_size];
         }
 
         path->length -= loop_size;
-        return; // Remove one loop at a time
+        return;
       }
     }
   }
@@ -246,7 +231,6 @@ void mutate_reverse_segment(Path *path) {
   int start = random_int(0, path->length - 2);
   int end = random_int(start + 1, path->length - 1);
 
-  // Reverse the segment
   while (start < end) {
     Coordinate temp = path->coordinates[start];
     path->coordinates[start] = path->coordinates[end];
@@ -261,12 +245,10 @@ void mutate_path(Path *path, const Grid *grid, float mutation_rate) {
   if (!path || !grid)
     return;
 
-  // Check if mutation should occur
   if (random_float(0.0, 1.0) > mutation_rate) {
-    return; // No mutation
+    return;
   }
 
-  // Randomly choose mutation type
   int mutation_type = random_int(0, 3);
 
   switch (mutation_type) {
@@ -291,8 +273,6 @@ Path **apply_elitism(Path **population, int pop_size, int elitism_count) {
     return NULL;
   }
 
-  // Population should already be sorted by fitness (best first)
-  // Clone the top individuals
   Path **elite = (Path **)safe_malloc(elitism_count * sizeof(Path *));
 
   for (int i = 0; i < elitism_count; i++) {
@@ -312,7 +292,6 @@ Path **create_next_generation(Path **current_pop, int pop_size,
   Path **next_gen = (Path **)safe_malloc(pop_size * sizeof(Path *));
   int next_count = 0;
 
-  // Step 1: Apply Elitism (preserve best solutions)
   int elitism_count = (pop_size * config->elitism_percent) / 100;
   if (elitism_count < 1)
     elitism_count = 1;
@@ -321,15 +300,12 @@ Path **create_next_generation(Path **current_pop, int pop_size,
 
   Path **elite = apply_elitism(current_pop, pop_size, elitism_count);
 
-  // Add elite individuals to next generation
   for (int i = 0; i < elitism_count; i++) {
     next_gen[next_count++] = elite[i];
   }
-  free(elite); // Free the array, not the paths (they're in next_gen)
+  free(elite);
 
-  // Step 2: Generate offspring through crossover and mutation
   while (next_count < pop_size) {
-    // Select two parents using tournament selection
     Path *parent1 =
         tournament_selection(current_pop, pop_size, config->tournament_size);
     Path *parent2 =
@@ -337,9 +313,7 @@ Path **create_next_generation(Path **current_pop, int pop_size,
 
     Path *child;
 
-    // Apply crossover
     if (random_float(0.0, 1.0) < config->crossover_rate) {
-      // Perform crossover
       int crossover_type = random_int(0, 2);
 
       switch (crossover_type) {
@@ -356,14 +330,11 @@ Path **create_next_generation(Path **current_pop, int pop_size,
         child = single_point_crossover(parent1, parent2, grid);
       }
     } else {
-      // No crossover, just clone one parent
       child = clone_path(parent1);
     }
 
-    // Apply mutation
     mutate_path(child, grid, config->mutation_rate);
 
-    // Add to next generation
     next_gen[next_count++] = child;
   }
 

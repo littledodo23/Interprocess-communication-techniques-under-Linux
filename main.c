@@ -36,7 +36,8 @@ int main(int argc, char *argv[]) {
   print_config(config);
 
   // Create output directory if it doesn't exist
-  system("mkdir -p output");
+  int ret = system("mkdir -p output");
+  (void)ret; // Suppress unused warning
 
   // Create grid environment
   printf("Creating 3D grid environment...\n");
@@ -101,7 +102,7 @@ int main(int argc, char *argv[]) {
   printf("✓ Worker pool created successfully\n");
 
   // Give workers time to start
-  usleep(100000); // 100ms
+  sleep(1);
 
   // Open statistics file if needed
   FILE *stats_file = NULL;
@@ -379,6 +380,7 @@ void print_generation_stats(Path **population, int pop_size, int generation,
   float avg = get_average_fitness(population, pop_size);
   float worst = get_worst_fitness(population, pop_size);
 
+  printf("Generation: %d\n", generation);
   printf("Best Fitness: %.2f\n", best);
   printf("Average Fitness: %.2f\n", avg);
   printf("Worst Fitness: %.2f\n", worst);

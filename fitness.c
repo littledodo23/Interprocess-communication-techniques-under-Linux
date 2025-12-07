@@ -7,20 +7,15 @@ float calculate_fitness(Path *path, const Grid *grid, const Config *config) {
     return 0.0f;
   }
 
-  // Calculate components
   float survivors = (float)calculate_survivors_reached(path, grid);
   float coverage = calculate_coverage_area(path, grid);
   float length = (float)path->length;
   float risk = calculate_path_risk(path, grid);
 
-  // Apply weights from config
   float fitness = config->w1_survivors * survivors +
-                  config->w2_coverage * coverage - config->w3_length * length -
+                  config->w2_coverage * coverage - 
+                  config->w3_length * length -
                   config->w4_risk * risk;
-                config->w4_risk * risk;
-  printf("PID %d DEBUG => survivors=%.0f  coverage=%.2f  length=%.0f  risk=%.2f  FITNESS=%.2f\n",
-       getpid(), survivors, coverage, length, risk, fitness);
-fflush(stdout);
 
   return fitness;
 }
@@ -35,11 +30,9 @@ int calculate_survivors_reached(const Path *path, const Grid *grid) {
   int count = 0;
   int *found = (int *)calloc(grid->num_survivors, sizeof(int));
 
-  // Check each coordinate in path
   for (int i = 0; i < path->length; i++) {
     Coordinate pos = path->coordinates[i];
 
-    // Check if this position has a survivor
     for (int s = 0; s < grid->num_survivors; s++) {
       if (!found[s] && coordinates_equal(pos, grid->survivors[s])) {
         found[s] = 1;
@@ -57,7 +50,6 @@ float calculate_coverage_area(const Path *path, const Grid *grid) {
     return 0.0f;
   }
 
-  // Create a 3D array to track visited cells
   int ***visited = (int ***)calloc(grid->size_x, sizeof(int **));
   for (int x = 0; x < grid->size_x; x++) {
     visited[x] = (int **)calloc(grid->size_y, sizeof(int *));
@@ -66,14 +58,12 @@ float calculate_coverage_area(const Path *path, const Grid *grid) {
     }
   }
 
-  // Mark cells in path and their neighbors
   int coverage_count = 0;
-  int coverage_radius = 2; // Robot can reach 2 cells around its path
+  int coverage_radius = 2;
 
   for (int i = 0; i < path->length; i++) {
     Coordinate pos = path->coordinates[i];
 
-    // Check cells within radius
     for (int dx = -coverage_radius; dx <= coverage_radius; dx++) {
       for (int dy = -coverage_radius; dy <= coverage_radius; dy++) {
         for (int dz = -coverage_radius; dz <= coverage_radius; dz++) {
@@ -90,7 +80,6 @@ float calculate_coverage_area(const Path *path, const Grid *grid) {
     }
   }
 
-  // Free visited array
   for (int x = 0; x < grid->size_x; x++) {
     for (int y = 0; y < grid->size_y; y++) {
       free(visited[x][y]);
@@ -99,7 +88,6 @@ float calculate_coverage_area(const Path *path, const Grid *grid) {
   }
   free(visited);
 
-  // Return coverage as percentage
   return (float)coverage_count / grid->total_cells * 100.0f;
 }
 
@@ -110,17 +98,14 @@ float calculate_path_risk(const Path *path, const Grid *grid) {
 
   float risk = 0.0f;
 
-  // Risk from collisions with obstacles
   risk += path->collision_count * 10.0f;
 
-  // Risk from path length (longer paths = more dangerous)
   risk += path->length * 0.1f;
 
-  // Risk from steep vertical movements
   for (int i = 1; i < path->length; i++) {
     int z_diff = abs(path->coordinates[i].z - path->coordinates[i - 1].z);
     if (z_diff > 1) {
-      risk += z_diff * 2.0f; // Climbing/descending is risky
+      risk += z_diff * 2.0f;
     }
   }
 
@@ -140,11 +125,9 @@ void update_path_fitness(Path *path, const Grid *grid, const Config *config) {
   if (!path)
     return;
 
-  // Update path statistics
   path->survivors_reached = calculate_survivors_reached(path, grid);
   path->collision_count = check_path_collisions(path, grid);
 
-  // Calculate fitness
   path->fitness = calculate_fitness(path, grid, config);
 }
 
@@ -230,6 +213,4 @@ float get_worst_fitness(Path **population, int pop_size) {
     }
   }
   return worst;
-
 }
-
