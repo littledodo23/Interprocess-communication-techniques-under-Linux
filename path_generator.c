@@ -123,6 +123,23 @@ int count_survivors_in_path(const Path* path, const Grid* grid) {
     return count;
 }
 
+// ===== NEW: Path Connectivity Functions =====
+
+int are_coordinates_adjacent(Coordinate c1, Coordinate c2) {
+    int dx = abs(c1.x - c2.x);
+    int dy = abs(c1.y - c2.y);
+    int dz = abs(c1.z - c2.z);
+    
+    // Adjacent means exactly one unit away in one direction
+    int total = dx + dy + dz;
+    return (total == 1);
+}
+
+Path* connect_coordinates(const Grid* grid, Coordinate from, Coordinate to) {
+    // Use A* to find connecting path
+    return find_path_astar(grid, from, to);
+}
+
 // ===== Heuristic Functions =====
 
 float heuristic_manhattan(Coordinate a, Coordinate b) {
@@ -134,11 +151,10 @@ float heuristic_euclidean(Coordinate a, Coordinate b) {
 }
 
 float heuristic_3d(Coordinate a, Coordinate b) {
-    // Weighted 3D distance (Z movement is more costly)
     int dx = abs(a.x - b.x);
     int dy = abs(a.y - b.y);
     int dz = abs(a.z - b.z);
-    return sqrt(dx*dx + dy*dy + dz*dz*1.5); // Z is 1.5x more costly
+    return sqrt(dx*dx + dy*dy + dz*dz*1.5);
 }
 
 // ===== A* Node Management =====
@@ -178,17 +194,14 @@ static AStarNode* find_lowest_f_cost(AStarNode** open_list, int open_count) {
 // ===== A* Pathfinding Algorithm =====
 
 Path* find_path_astar(const Grid* grid, Coordinate start, Coordinate goal) {
-    // Check if start and goal are valid
     if (!is_valid_coordinate(grid, start) || !is_valid_coordinate(grid, goal)) {
         return NULL;
     }
     
-    // Check if goal is reachable (not obstacle)
     if (is_obstacle(grid, goal) && !is_survivor(grid, goal)) {
         return NULL;
     }
     
-    // Initialize open and closed lists
     int max_nodes = grid->size_x * grid->size_y * grid->size_z;
     AStarNode** open_list = (AStarNode**)safe_malloc(max_nodes * sizeof(AStarNode*));
     AStarNode** closed_list = (AStarNode**)safe_malloc(max_nodes * sizeof(AStarNode*));
@@ -198,7 +211,6 @@ Path* find_path_astar(const Grid* grid, Coordinate start, Coordinate goal) {
     int closed_count = 0;
     int total_nodes = 0;
     
-    // Create start node
     AStarNode* start_node = create_astar_node(start);
     start_node->g_cost = 0;
     start_node->h_cost = heuristic_3d(start, goal);
@@ -209,18 +221,14 @@ Path* find_path_astar(const Grid* grid, Coordinate start, Coordinate goal) {
     
     AStarNode* goal_node = NULL;
     
-    // Main A* loop
     while (open_count > 0) {
-        // Find node with lowest f_cost
         AStarNode* current = find_lowest_f_cost(open_list, open_count);
         
-        // Check if we reached the goal
         if (coordinates_equal(current->position, goal)) {
             goal_node = current;
             break;
         }
         
-        // Move current from open to closed
         for (int i = 0; i < open_count; i++) {
             if (open_list[i] == current) {
                 open_list[i] = open_list[--open_count];
@@ -230,26 +238,21 @@ Path* find_path_astar(const Grid* grid, Coordinate start, Coordinate goal) {
         closed_list[closed_count++] = current;
         current->is_closed = 1;
         
-        // Check neighbors
         Coordinate neighbors[6];
         int neighbor_count = get_walkable_neighbors(grid, current->position, neighbors);
         
         for (int i = 0; i < neighbor_count; i++) {
             Coordinate neighbor_pos = neighbors[i];
             
-            // Skip if in closed list
             int in_closed = find_node_in_list(closed_list, closed_count, neighbor_pos);
             if (in_closed >= 0) continue;
             
-            // Calculate costs
             float tentative_g = current->g_cost + 1.0f;
             
-            // Add penalty for obstacles (allow passing but costly)
             if (is_obstacle(grid, neighbor_pos)) {
                 tentative_g += 10.0f;
             }
             
-            // Check if neighbor is in open list
             int in_open = find_node_in_list(open_list, open_count, neighbor_pos);
             AStarNode* neighbor_node = NULL;
             
@@ -262,7 +265,6 @@ Path* find_path_astar(const Grid* grid, Coordinate start, Coordinate goal) {
                     neighbor_node->parent = current;
                 }
             } else {
-                // Create new node
                 neighbor_node = create_astar_node(neighbor_pos);
                 neighbor_node->g_cost = tentative_g;
                 neighbor_node->h_cost = heuristic_3d(neighbor_pos, goal);
@@ -274,14 +276,12 @@ Path* find_path_astar(const Grid* grid, Coordinate start, Coordinate goal) {
             }
         }
         
-        // Safety check to prevent infinite loop
         if (total_nodes >= max_nodes - 100) {
             warning("A* search space too large, stopping");
             break;
         }
     }
     
-    // Reconstruct path
     Path* path = NULL;
     if (goal_node) {
         path = create_path(100);
@@ -292,18 +292,15 @@ Path* find_path_astar(const Grid* grid, Coordinate start, Coordinate goal) {
             current = current->parent;
         }
         
-        // Reverse path (we built it backwards)
         for (int i = 0; i < path->length / 2; i++) {
             Coordinate temp = path->coordinates[i];
             path->coordinates[i] = path->coordinates[path->length - 1 - i];
             path->coordinates[path->length - 1 - i] = temp;
         }
         
-        // Calculate collision count
         path->collision_count = check_path_collisions(path, grid);
     }
     
-    // Cleanup
     for (int i = 0; i < total_nodes; i++) {
         free(all_nodes[i]);
     }
@@ -321,7 +318,6 @@ Path* find_path_to_nearest_survivor(const Grid* grid, Coordinate start,
     float min_distance = FLT_MAX;
     int nearest_survivor = -1;
     
-    // Find nearest unvisited survivor
     for (int i = 0; i < grid->num_survivors; i++) {
         if (visited_survivors && visited_survivors[i]) continue;
         
@@ -353,7 +349,6 @@ Path* generate_random_path(const Grid* grid, int max_length) {
         
         if (neighbor_count == 0) break;
         
-        // Choose random walkable neighbor
         int attempts = 0;
         Coordinate next = current;
         while (attempts < 10) {
@@ -370,7 +365,7 @@ Path* generate_random_path(const Grid* grid, int max_length) {
             add_coordinate_to_path(path, next);
             current = next;
         } else {
-            break; // Stuck
+            break;
         }
     }
     
@@ -390,20 +385,17 @@ Path* generate_greedy_path(const Grid* grid) {
     int* visited = (int*)calloc(grid->num_survivors, sizeof(int));
     int survivors_found = 0;
     
-    // Greedily visit each survivor
     while (survivors_found < grid->num_survivors) {
         Path* segment = find_path_to_nearest_survivor(grid, current, visited);
         
         if (!segment || segment->length == 0) break;
         
-        // Add segment to path (skip first coordinate as it's current)
         for (int i = 1; i < segment->length; i++) {
             add_coordinate_to_path(path, segment->coordinates[i]);
         }
         
         current = segment->coordinates[segment->length - 1];
         
-        // Mark survivor as visited
         int survivor_idx = get_survivor_at(grid, current);
         if (survivor_idx >= 0) {
             visited[survivor_idx] = 1;
@@ -431,7 +423,6 @@ Path** generate_initial_population(const Grid* grid, const Config* config, int* 
     
     int generated = 0;
     
-    // Generate 10% greedy paths
     int greedy_count = target_size / 10;
     if (greedy_count < 1) greedy_count = 1;
     
@@ -439,7 +430,6 @@ Path** generate_initial_population(const Grid* grid, const Config* config, int* 
         population[generated++] = generate_greedy_path(grid);
     }
     
-    // Generate remaining random paths
     while (generated < target_size) {
         int path_length = random_int(20, MAX_PATH_LENGTH / 2);
         population[generated++] = generate_random_path(grid, path_length);
