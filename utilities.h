@@ -13,11 +13,13 @@
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <errno.h>
+#include <pthread.h>
 
 // ===== Constants =====
 #define MAX_PATH_LENGTH 1000
 #define MAX_LINE_LENGTH 256
 #define MAX_SURVIVORS 50
+#define MAX_POPULATION 500
 #define CONFIG_FILE_DEFAULT "config/config.txt"
 #define OUTPUT_FILE "output/results.txt"
 
