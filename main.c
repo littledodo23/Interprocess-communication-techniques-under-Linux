@@ -5,13 +5,11 @@
 #include "path_generator.h"
 #include "utilities.h"
 
-// Function prototypes for this file
+// Function prototypes
 void print_generation_stats(Path **population, int pop_size, int generation,
                             double elapsed_time);
 void save_best_paths(Path **population, int pop_size, const Grid *grid,
                      const char *filename);
-void save_generation_history(int generation, float best_fitness,
-                              float avg_fitness, const char *filename);
 
 int main(int argc, char *argv[]) {
   printf("========================================\n");
@@ -19,7 +17,6 @@ int main(int argc, char *argv[]) {
   printf("  Multi-Processing with IPC\n");
   printf("========================================\n\n");
 
-  // Initialize random seed
   srand(time(NULL));
 
   // Load configuration
@@ -32,27 +29,23 @@ int main(int argc, char *argv[]) {
     config = create_default_config();
   }
 
-  // Print configuration
   print_config(config);
 
-  // Create output directory if it doesn't exist
+  // Create output directory
   int ret = system("mkdir -p output");
-  (void)ret; // Suppress unused warning
+  (void)ret;
 
   // Create grid environment
   printf("Creating 3D grid environment...\n");
   Grid *grid = create_grid(config->grid_x, config->grid_y, config->grid_z);
 
-  // Initialize grid with obstacles and survivors
   printf("Initializing grid with obstacles and survivors...\n");
   initialize_grid(grid, config);
   print_grid_info(grid);
 
-  // Save grid layout
   save_grid_to_file(grid, "output/grid_layout.txt");
   printf("Grid layout saved to: output/grid_layout.txt\n");
 
-  // Print first layer for visualization
   if (config->verbose) {
     print_grid_layer(grid, 0);
   }
@@ -62,14 +55,6 @@ int main(int argc, char *argv[]) {
   int pop_size = 0;
   Path **population = generate_initial_population(grid, config, &pop_size);
   printf("✓ Generated %d paths for initial population\n", pop_size);
-
-  // Evaluate initial fitness
-  printf("Evaluating initial fitness...\n");
-  update_population_fitness(population, pop_size, grid, config);
-  qsort(population, pop_size, sizeof(Path *), compare_paths_by_fitness);
-
-  printf("\nInitial Population Statistics:\n");
-  print_fitness_statistics(population, pop_size);
 
   // Setup IPC for multiprocessing
   printf("\n========== Setting Up Multi-Processing ==========\n");
@@ -90,10 +75,11 @@ int main(int argc, char *argv[]) {
   // Initialize shared data
   shared_data->population_size = pop_size;
   shared_data->current_generation = 0;
-  shared_data->completed_tasks = 0;
-  shared_data->total_tasks = 0;
-  shared_data->best_fitness = population[0]->fitness;
+  shared_data->workers_completed = 0;
+  shared_data->best_fitness = -1000.0f;
   shared_data->termination_flag = 0;
+  shared_data->work_ready = 0;
+  shared_data->num_workers = config->num_workers;
 
   // Create worker pool
   printf("Creating worker pool (%d workers)...\n", config->num_workers);
@@ -101,10 +87,19 @@ int main(int argc, char *argv[]) {
       create_worker_pool(config->num_workers, shm_id, sem_id, grid, config);
   printf("✓ Worker pool created successfully\n");
 
-  // Give workers time to start
-  sleep(1);
+  sleep(1); // Give workers time to start
 
-  // Open statistics file if needed
+  // Evaluate initial fitness using parallel workers
+  printf("\nEvaluating initial fitness in parallel...\n");
+  parallel_evaluate_fitness(population, pop_size, grid, config, 
+                           shared_data, sem_id);
+  
+  qsort(population, pop_size, sizeof(Path *), compare_paths_by_fitness);
+
+  printf("\nInitial Population Statistics:\n");
+  print_fitness_statistics(population, pop_size);
+
+  // Open statistics file
   FILE *stats_file = NULL;
   if (config->save_stats) {
     stats_file = fopen("output/generation_stats.csv", "w");
@@ -114,7 +109,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // ========== MAIN GENETIC ALGORITHM LOOP ==========
+  // Main GA loop
   printf("\n========== Starting Genetic Algorithm Evolution ==========\n");
   printf("Maximum generations: %d\n", config->max_generations);
   printf("Stagnation limit: %d generations\n", config->stagnation_limit);
@@ -127,7 +122,6 @@ int main(int argc, char *argv[]) {
   float prev_best_fitness = 0.0f;
   double start_time = get_time_ms();
 
-  // Evolution loop
   while (generation < config->max_generations) {
     double gen_start_time = get_time_ms();
 
@@ -140,21 +134,18 @@ int main(int argc, char *argv[]) {
     if (config->verbose) {
       printf("\n========== Generation %d ==========\n", generation + 1);
     } else {
-      print_progress_bar(generation + 1, config->max_generations,
-                         "Evolution");
+      print_progress_bar(generation + 1, config->max_generations, "Evolution");
     }
 
-    // Get current best fitness
     float best_fitness = population[0]->fitness;
     float avg_fitness = get_average_fitness(population, pop_size);
 
-    // Print generation statistics
     if (config->verbose) {
       double elapsed = (get_time_ms() - start_time) / 1000.0;
       print_generation_stats(population, pop_size, generation + 1, elapsed);
     }
 
-    // Save to statistics file
+    // Save statistics
     if (stats_file) {
       float worst_fitness = get_worst_fitness(population, pop_size);
       int total_survivors = 0;
@@ -187,7 +178,6 @@ int main(int argc, char *argv[]) {
       break;
     }
 
-    // Check time limit
     double elapsed = (get_time_ms() - start_time) / 1000.0;
     if (config->time_limit > 0 && elapsed > config->time_limit) {
       printf("\n✓ Stopping: Time limit of %d seconds reached (%.1fs)\n",
@@ -195,7 +185,6 @@ int main(int argc, char *argv[]) {
       break;
     }
 
-    // Check if all survivors found
     if (population[0]->survivors_reached == grid->num_survivors &&
         generation > 10) {
       printf("\n✓ Stopping: All survivors reached in optimal path!\n");
@@ -204,14 +193,18 @@ int main(int argc, char *argv[]) {
 
     prev_best_fitness = best_fitness;
 
-    // Create next generation using genetic operators
+    // Create next generation
     Path **next_generation =
         create_next_generation(population, pop_size, grid, config);
 
-    // Evaluate fitness for new generation
-    update_population_fitness(next_generation, pop_size, grid, config);
+    // Evaluate fitness in parallel using workers
+    if (config->verbose) {
+      printf("Evaluating new generation fitness in parallel...\n");
+    }
+    parallel_evaluate_fitness(next_generation, pop_size, grid, config,
+                             shared_data, sem_id);
 
-    // Sort by fitness (best first)
+    // Sort by fitness
     qsort(next_generation, pop_size, sizeof(Path *),
           compare_paths_by_fitness);
 
@@ -221,24 +214,21 @@ int main(int argc, char *argv[]) {
     }
     free(population);
 
-    // Update population pointer
     population = next_generation;
     generation++;
 
-    // Show generation time
     if (config->verbose) {
       double gen_time = (get_time_ms() - gen_start_time) / 1000.0;
       printf("Generation time: %.3f seconds\n", gen_time);
     }
   }
 
-  // Close statistics file
   if (stats_file) {
     fclose(stats_file);
     printf("\n✓ Statistics saved to: output/generation_stats.csv\n");
   }
 
-  // ========== RESULTS ==========
+  // Results
   printf("\n========================================\n");
   printf("       Evolution Complete!              \n");
   printf("========================================\n\n");
@@ -252,11 +242,9 @@ int main(int argc, char *argv[]) {
          total_time / (generation > 0 ? generation : 1));
   printf("\n");
 
-  // Final population statistics
   printf("========== Final Population Statistics ==========\n");
   print_fitness_statistics(population, pop_size);
 
-  // Best path details
   printf("\n========== Best Solution Found ==========\n");
   Path *best_path = population[0];
 
@@ -272,11 +260,9 @@ int main(int argc, char *argv[]) {
   printf("Manhattan Distance: %d\n",
          calculate_path_length_manhattan(best_path));
 
-  // Save best path
   save_path_to_file(best_path, "output/best_path.txt");
   printf("\n✓ Best path saved to: output/best_path.txt\n");
 
-  // Save top 5 paths
   save_best_paths(population, pop_size < 5 ? pop_size : 5, grid,
                   "output/top_paths.txt");
   printf("✓ Top paths saved to: output/top_paths.txt\n");
@@ -301,7 +287,8 @@ int main(int argc, char *argv[]) {
     fprintf(results, "  Generations: %d\n", generation);
     fprintf(results, "  Mutation Rate: %.3f\n", config->mutation_rate);
     fprintf(results, "  Crossover Rate: %.3f\n", config->crossover_rate);
-    fprintf(results, "  Elitism: %d%%\n\n", config->elitism_percent);
+    fprintf(results, "  Elitism: %d%%\n", config->elitism_percent);
+    fprintf(results, "  Workers: %d\n\n", config->num_workers);
 
     fprintf(results, "Best Solution:\n");
     fprintf(results, "  Fitness Score: %.2f\n", best_path->fitness);
@@ -318,7 +305,6 @@ int main(int argc, char *argv[]) {
     printf("✓ Results summary saved to: output/results.txt\n");
   }
 
-  // Print sample of best path coordinates
   if (config->verbose && best_path->length > 0) {
     printf("\nBest Path Coordinates (first 20 steps):\n");
     int show_count = best_path->length < 20 ? best_path->length : 20;
@@ -327,7 +313,6 @@ int main(int argc, char *argv[]) {
              best_path->coordinates[i].x, best_path->coordinates[i].y,
              best_path->coordinates[i].z);
 
-      // Check if survivor at this location
       int survivor_idx = get_survivor_at(grid, best_path->coordinates[i]);
       if (survivor_idx >= 0) {
         printf(" <- SURVIVOR #%d", survivor_idx + 1);
@@ -339,7 +324,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // Cleanup multiprocessing
+  // Cleanup
   printf("\n========== Cleanup ==========\n");
   printf("Terminating worker processes...\n");
 
@@ -353,14 +338,12 @@ int main(int argc, char *argv[]) {
   cleanup_ipc(shm_id, sem_id);
   printf("✓ IPC resources cleaned up\n");
 
-  // Free population
   for (int i = 0; i < pop_size; i++) {
     free_path(population[i]);
   }
   free(population);
   printf("✓ Population memory freed\n");
 
-  // Free grid and config
   free_grid(grid);
   free_config(config);
   printf("✓ Grid and configuration freed\n");
@@ -372,7 +355,7 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-// ===== Helper Functions Implementation =====
+// Helper Functions
 
 void print_generation_stats(Path **population, int pop_size, int generation,
                             double elapsed_time) {
@@ -418,7 +401,6 @@ void save_best_paths(Path **population, int count, const Grid *grid,
       fprintf(file, "  %3d: (%2d, %2d, %2d)", j, path->coordinates[j].x,
               path->coordinates[j].y, path->coordinates[j].z);
 
-      // Mark survivors
       int survivor_idx = get_survivor_at(grid, path->coordinates[j]);
       if (survivor_idx >= 0) {
         fprintf(file, " <- Survivor #%d", survivor_idx + 1);
@@ -428,19 +410,5 @@ void save_best_paths(Path **population, int count, const Grid *grid,
     fprintf(file, "\n");
   }
 
-  fclose(file);
-}
-
-void save_generation_history(int generation, float best_fitness,
-                              float avg_fitness, const char *filename) {
-  FILE *file = fopen(filename, "a");
-  if (!file)
-    return;
-
-  if (generation == 1) {
-    fprintf(file, "Generation,Best_Fitness,Average_Fitness\n");
-  }
-
-  fprintf(file, "%d,%.2f,%.2f\n", generation, best_fitness, avg_fitness);
   fclose(file);
 }
