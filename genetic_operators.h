@@ -11,7 +11,7 @@ Path *tournament_selection(Path **population, int pop_size,
 Path **select_parents(Path **population, int pop_size, const Config *config,
                       int num_parents);
 
-// ===== Crossover =====
+// ===== Crossover with Validation =====
 Path **crossover_paths(const Path *parent1, const Path *parent2,
                        const Grid *grid);
 Path *single_point_crossover(const Path *parent1, const Path *parent2,
