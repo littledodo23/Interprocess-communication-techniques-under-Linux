@@ -50,6 +50,10 @@ Path* find_path_astar(const Grid* grid, Coordinate start, Coordinate goal);
 Path* find_path_to_nearest_survivor(const Grid* grid, Coordinate start, 
                                      const int* visited_survivors);
 
+// Path connectivity (NEW - for crossover validation)
+Path* connect_coordinates(const Grid* grid, Coordinate from, Coordinate to);
+int are_coordinates_adjacent(Coordinate c1, Coordinate c2);
+
 // Population generation
 Path** generate_initial_population(const Grid* grid, const Config* config, int* pop_size);
 Path* generate_random_path(const Grid* grid, int max_length);
