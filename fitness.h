@@ -7,13 +7,19 @@
 
 // ===== Fitness Calculation =====
 
-// Main fitness function
+// Main fitness function with normalization
 float calculate_fitness(Path *path, const Grid *grid, const Config *config);
 
 // Component calculations
 int calculate_survivors_reached(const Path *path, const Grid *grid);
 float calculate_coverage_area(const Path *path, const Grid *grid);
 float calculate_path_risk(const Path *path, const Grid *grid);
+
+// Normalization functions (NEW)
+float normalize_survivors(int survivors, int max_survivors);
+float normalize_coverage(float coverage);
+float normalize_length(int length, int max_length);
+float normalize_risk(float risk, float max_expected_risk);
 
 // Helper functions
 float normalize_fitness_component(float value, float min_val, float max_val);
