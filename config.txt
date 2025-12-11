@@ -20,14 +20,16 @@ CROSSOVER_RATE=0.85
 ELITISM_PERCENT=10
 TOURNAMENT_SIZE=5
 
-# Fitness Function Weights
+# Fitness Function Weights (Applied to normalized [0,1] values)
 # f = w1*survivors + w2*coverage - w3*length - w4*risk
+# All components are normalized to [0,1] before applying weights
 W1_SURVIVORS=15.0
 W2_COVERAGE=8.0
 W3_LENGTH=1.5
 W4_RISK=3.0
 
 # Multi-Processing Settings
+# Number of worker processes for parallel fitness evaluation
 NUM_WORKERS=4
 
 # Termination Criteria
