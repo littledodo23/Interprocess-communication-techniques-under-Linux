@@ -10,6 +10,9 @@ void print_generation_stats(Path **population, int pop_size, int generation,
                             double elapsed_time);
 void save_best_paths(Path **population, int pop_size, const Grid *grid,
                      const char *filename);
+void save_robot_deployment(Path *best_path, const Grid *grid, const char *filename);
+void save_multi_robot_deployment(Path **population, int num_robots, const Grid *grid, 
+                                 const char *filename);
 
 int main(int argc, char *argv[]) {
   printf("========================================\n");
@@ -27,6 +30,12 @@ int main(int argc, char *argv[]) {
   } else {
     printf("No config file provided. Using default values.\n");
     config = create_default_config();
+  }
+
+  // Validate configuration
+  if (!validate_config(config)) {
+    free_config(config);
+    error_exit("Configuration validation failed. Please fix config.txt");
   }
 
   print_config(config);
@@ -267,6 +276,15 @@ int main(int argc, char *argv[]) {
                   "output/top_paths.txt");
   printf("✓ Top paths saved to: output/top_paths.txt\n");
 
+  // Save robot deployment files
+  save_robot_deployment(best_path, grid, "output/robot_commands.txt");
+  printf("✓ Robot deployment saved to: output/robot_commands.txt\n");
+
+  // Save multi-robot deployment (top 5 paths for 5 robots)
+  int num_robots = pop_size < 5 ? pop_size : 5;
+  save_multi_robot_deployment(population, num_robots, grid, "output/multi_robot_deployment.txt");
+  printf("✓ Multi-robot deployment saved to: output/multi_robot_deployment.txt\n");
+
   // Save final results
   FILE *results = fopen("output/results.txt", "w");
   if (results) {
@@ -298,6 +316,28 @@ int main(int argc, char *argv[]) {
     fprintf(results, "  Collisions: %d\n", best_path->collision_count);
     fprintf(results, "  Coverage: %.2f%%\n\n",
             calculate_coverage_area(best_path, grid));
+
+    // Add survivor priority order
+    fprintf(results, "Survivor Priority Order:\n");
+    int priority = 1;
+    for (int i = 0; i < best_path->length; i++) {
+        int survivor_idx = get_survivor_at(grid, best_path->coordinates[i]);
+        if (survivor_idx >= 0) {
+            fprintf(results, "  Priority %d: Survivor #%d at (%d, %d, %d) - Step %d\n",
+                    priority, survivor_idx + 1,
+                    best_path->coordinates[i].x,
+                    best_path->coordinates[i].y,
+                    best_path->coordinates[i].z,
+                    i);
+            priority++;
+        }
+    }
+    
+    fprintf(results, "\nRobot Deployment:\n");
+    fprintf(results, "  Single Robot: output/robot_commands.txt\n");
+    fprintf(results, "  Multi-Robot: output/multi_robot_deployment.txt\n");
+    fprintf(results, "  Format: Step,X,Y,Z,Action,Priority\n");
+    fprintf(results, "  Ready for autonomous deployment\n\n");
 
     fprintf(results, "Execution Time: %.2f seconds\n", total_time);
 
@@ -411,4 +451,150 @@ void save_best_paths(Path **population, int count, const Grid *grid,
   }
 
   fclose(file);
+}
+
+void save_robot_deployment(Path *best_path, const Grid *grid, const char *filename) {
+    FILE *file = fopen(filename, "w");
+    if (!file) {
+        warning("Could not save robot deployment file");
+        return;
+    }
+    
+    fprintf(file, "# ========================================\n");
+    fprintf(file, "# Robot Deployment Commands\n");
+    fprintf(file, "# Optimized rescue path for single robot\n");
+    fprintf(file, "# ========================================\n");
+    fprintf(file, "# Format: STEP,X,Y,Z,ACTION,PRIORITY\n");
+    fprintf(file, "#\n");
+    fprintf(file, "# Actions:\n");
+    fprintf(file, "#   MOVE              - Normal movement\n");
+    fprintf(file, "#   DELIVER_SUPPLIES  - Survivor location (deliver nutrition/beverage)\n");
+    fprintf(file, "#   NAVIGATE_OBSTACLE - Obstacle detected (use caution)\n");
+    fprintf(file, "#\n");
+    fprintf(file, "# Priority: P1, P2, P3... (survivor delivery order)\n");
+    fprintf(file, "# ========================================\n\n");
+    
+    int survivor_priority = 1;
+    
+    for (int i = 0; i < best_path->length; i++) {
+        Coordinate pos = best_path->coordinates[i];
+        int survivor_idx = get_survivor_at(grid, pos);
+        
+        if (survivor_idx >= 0) {
+            // Survivor location - HIGH PRIORITY
+            fprintf(file, "%d,%d,%d,%d,DELIVER_SUPPLIES,P%d\n", 
+                    i, pos.x, pos.y, pos.z, survivor_priority);
+            survivor_priority++;
+        } else if (is_obstacle(grid, pos)) {
+            // Obstacle - CAUTION
+            fprintf(file, "%d,%d,%d,%d,NAVIGATE_OBSTACLE,CAUTION\n", 
+                    i, pos.x, pos.y, pos.z);
+        } else {
+            // Normal movement
+            fprintf(file, "%d,%d,%d,%d,MOVE,NORMAL\n", 
+                    i, pos.x, pos.y, pos.z);
+        }
+    }
+    
+    fprintf(file, "\n# ========================================\n");
+    fprintf(file, "# Mission Summary\n");
+    fprintf(file, "# ========================================\n");
+    fprintf(file, "# Total Steps: %d\n", best_path->length);
+    fprintf(file, "# Survivors Reached: %d/%d (%.1f%%)\n", 
+            best_path->survivors_reached, grid->num_survivors,
+            (float)best_path->survivors_reached / grid->num_survivors * 100.0f);
+    fprintf(file, "# Mission Fitness: %.2f\n", best_path->fitness);
+    fprintf(file, "# Collision Count: %d\n", best_path->collision_count);
+    fprintf(file, "# ========================================\n");
+    
+    fclose(file);
+}
+
+void save_multi_robot_deployment(Path **population, int num_robots, const Grid *grid, 
+                                 const char *filename) {
+    FILE *file = fopen(filename, "w");
+    if (!file) {
+        warning("Could not save multi-robot deployment file");
+        return;
+    }
+    
+    fprintf(file, "# ========================================\n");
+    fprintf(file, "# Multi-Robot Deployment Strategy\n");
+    fprintf(file, "# ========================================\n");
+    fprintf(file, "# Deployment of %d robots with optimized paths\n", num_robots);
+    fprintf(file, "# Each robot follows a different optimized path\n");
+    fprintf(file, "# ========================================\n\n");
+    
+    // Calculate total survivors that can be reached
+    int total_survivors_covered = 0;
+    int *survivor_covered = (int*)calloc(grid->num_survivors, sizeof(int));
+    
+    for (int r = 0; r < num_robots; r++) {
+        Path *path = population[r];
+        for (int i = 0; i < path->length; i++) {
+            int survivor_idx = get_survivor_at(grid, path->coordinates[i]);
+            if (survivor_idx >= 0 && !survivor_covered[survivor_idx]) {
+                survivor_covered[survivor_idx] = 1;
+                total_survivors_covered++;
+            }
+        }
+    }
+    
+    fprintf(file, "# Multi-Robot Mission Summary:\n");
+    fprintf(file, "# - Total Robots: %d\n", num_robots);
+    fprintf(file, "# - Total Survivors Covered: %d/%d (%.1f%%)\n\n", 
+            total_survivors_covered, grid->num_survivors,
+            (float)total_survivors_covered / grid->num_survivors * 100.0f);
+    
+    // Write deployment for each robot
+    for (int r = 0; r < num_robots; r++) {
+        Path *path = population[r];
+        
+        fprintf(file, "# ========================================\n");
+        fprintf(file, "# ROBOT_%d Deployment\n", r + 1);
+        fprintf(file, "# ========================================\n");
+        fprintf(file, "# Fitness: %.2f\n", path->fitness);
+        fprintf(file, "# Path Length: %d steps\n", path->length);
+        fprintf(file, "# Survivors: %d\n", path->survivors_reached);
+        fprintf(file, "# Collisions: %d\n", path->collision_count);
+        fprintf(file, "# ========================================\n");
+        fprintf(file, "# Format: ROBOT_ID,STEP,X,Y,Z,ACTION,PRIORITY\n\n");
+        
+        int survivor_priority = 1;
+        
+        for (int i = 0; i < path->length; i++) {
+            Coordinate pos = path->coordinates[i];
+            int survivor_idx = get_survivor_at(grid, pos);
+            
+            if (survivor_idx >= 0) {
+                fprintf(file, "ROBOT_%d,%d,%d,%d,%d,DELIVER_SUPPLIES,P%d\n", 
+                        r + 1, i, pos.x, pos.y, pos.z, survivor_priority);
+                survivor_priority++;
+            } else if (is_obstacle(grid, pos)) {
+                fprintf(file, "ROBOT_%d,%d,%d,%d,%d,NAVIGATE_OBSTACLE,CAUTION\n", 
+                        r + 1, i, pos.x, pos.y, pos.z);
+            } else {
+                fprintf(file, "ROBOT_%d,%d,%d,%d,%d,MOVE,NORMAL\n", 
+                        r + 1, i, pos.x, pos.y, pos.z);
+            }
+        }
+        
+        fprintf(file, "\n");
+    }
+    
+    fprintf(file, "# ========================================\n");
+    fprintf(file, "# Deployment Strategy Notes:\n");
+    fprintf(file, "# ========================================\n");
+    fprintf(file, "# - ROBOT_1: Best fitness path (highest priority)\n");
+    fprintf(file, "# - ROBOT_2: Second best path\n");
+    fprintf(file, "# - ROBOT_3+: Additional coverage paths\n");
+    fprintf(file, "#\n");
+    fprintf(file, "# Deployment Options:\n");
+    fprintf(file, "# 1. Sequential: Deploy robots one after another\n");
+    fprintf(file, "# 2. Parallel: Deploy all robots simultaneously\n");
+    fprintf(file, "# 3. Zone-based: Assign robots to different grid zones\n");
+    fprintf(file, "# ========================================\n");
+    
+    free(survivor_covered);
+    fclose(file);
 }
