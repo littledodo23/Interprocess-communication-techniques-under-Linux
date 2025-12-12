@@ -109,6 +109,128 @@ Config* create_default_config() {
     return config;
 }
 
+// Validate configuration
+int validate_config(Config* config) {
+    int valid = 1;
+    
+    printf("Validating configuration...\n");
+    
+    // Grid validation
+    if (config->grid_x <= 0 || config->grid_x > 100) {
+        fprintf(stderr, "ERROR: grid_x must be between 1 and 100\n");
+        valid = 0;
+    }
+    if (config->grid_y <= 0 || config->grid_y > 100) {
+        fprintf(stderr, "ERROR: grid_y must be between 1 and 100\n");
+        valid = 0;
+    }
+    if (config->grid_z <= 0 || config->grid_z > 20) {
+        fprintf(stderr, "ERROR: grid_z must be between 1 and 20\n");
+        valid = 0;
+    }
+    
+    // Survivors validation
+    if (config->num_survivors <= 0 || config->num_survivors > MAX_SURVIVORS) {
+        fprintf(stderr, "ERROR: num_survivors must be between 1 and %d\n", MAX_SURVIVORS);
+        valid = 0;
+    }
+    
+    // Check if grid can fit survivors
+    int max_possible = config->grid_x * config->grid_y * config->grid_z;
+    if (config->num_survivors >= max_possible) {
+        fprintf(stderr, "ERROR: Too many survivors for grid size\n");
+        valid = 0;
+    }
+    
+    // Obstacle percentage
+    if (config->obstacle_percent < 0 || config->obstacle_percent > 80) {
+        fprintf(stderr, "WARNING: obstacle_percent should be 0-80, resetting to 25\n");
+        config->obstacle_percent = 25;
+    }
+    
+    // Start position
+    if (config->start_pos.x < 0 || config->start_pos.x >= config->grid_x ||
+        config->start_pos.y < 0 || config->start_pos.y >= config->grid_y ||
+        config->start_pos.z < 0 || config->start_pos.z >= config->grid_z) {
+        fprintf(stderr, "WARNING: start_pos out of bounds, using (0,0,0)\n");
+        config->start_pos = create_coordinate(0, 0, 0);
+    }
+    
+    // GA parameters
+    if (config->population_size <= 0 || config->population_size > MAX_POPULATION) {
+        fprintf(stderr, "ERROR: population_size must be between 1 and %d\n", MAX_POPULATION);
+        valid = 0;
+    }
+    
+    if (config->max_generations <= 0 || config->max_generations > 10000) {
+        fprintf(stderr, "ERROR: max_generations must be between 1 and 10000\n");
+        valid = 0;
+    }
+    
+    if (config->mutation_rate < 0.0 || config->mutation_rate > 1.0) {
+        fprintf(stderr, "WARNING: mutation_rate must be 0.0-1.0, resetting to 0.05\n");
+        config->mutation_rate = 0.05;
+    }
+    
+    if (config->crossover_rate < 0.0 || config->crossover_rate > 1.0) {
+        fprintf(stderr, "WARNING: crossover_rate must be 0.0-1.0, resetting to 0.85\n");
+        config->crossover_rate = 0.85;
+    }
+    
+    if (config->elitism_percent < 0 || config->elitism_percent > 50) {
+        fprintf(stderr, "WARNING: elitism_percent should be 0-50, resetting to 10\n");
+        config->elitism_percent = 10;
+    }
+    
+    if (config->tournament_size <= 0 || config->tournament_size > config->population_size) {
+        fprintf(stderr, "ERROR: tournament_size must be between 1 and population_size\n");
+        valid = 0;
+    }
+    
+    // Fitness weights validation
+    if (config->w1_survivors < 0.0) {
+        fprintf(stderr, "WARNING: w1_survivors should be positive\n");
+        config->w1_survivors = 15.0;
+    }
+    if (config->w2_coverage < 0.0) {
+        fprintf(stderr, "WARNING: w2_coverage should be positive\n");
+        config->w2_coverage = 8.0;
+    }
+    if (config->w3_length < 0.0) {
+        fprintf(stderr, "WARNING: w3_length should be positive\n");
+        config->w3_length = 1.5;
+    }
+    if (config->w4_risk < 0.0) {
+        fprintf(stderr, "WARNING: w4_risk should be positive\n");
+        config->w4_risk = 3.0;
+    }
+    
+    // Worker validation
+    if (config->num_workers <= 0 || config->num_workers > 16) {
+        fprintf(stderr, "WARNING: num_workers must be 1-16, using 4\n");
+        config->num_workers = 4;
+    }
+    
+    // Termination criteria
+    if (config->stagnation_limit <= 0) {
+        fprintf(stderr, "WARNING: stagnation_limit must be positive, using 20\n");
+        config->stagnation_limit = 20;
+    }
+    
+    if (config->time_limit < 0) {
+        fprintf(stderr, "WARNING: time_limit must be non-negative, using 300\n");
+        config->time_limit = 300;
+    }
+    
+    if (valid) {
+        printf("✓ Configuration validated successfully\n\n");
+    } else {
+        fprintf(stderr, "\n✗ Configuration validation FAILED\n\n");
+    }
+    
+    return valid;
+}
+
 // Print configuration
 void print_config(const Config* config) {
     printf("\n========== Configuration ==========\n");
@@ -240,4 +362,4 @@ void error_exit(const char* message) {
 // Print warning
 void warning(const char* message) {
     fprintf(stderr, "WARNING: %s\n", message);
-} 
+}
