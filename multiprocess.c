@@ -1,5 +1,13 @@
 #include "multiprocess.h"
 
+// Helper function to replace usleep
+static void msleep(int milliseconds) {
+    struct timespec ts;
+    ts.tv_sec = milliseconds / 1000;
+    ts.tv_nsec = (milliseconds % 1000) * 1000000;
+    nanosleep(&ts, NULL);
+}
+
 // ===== Shared Memory Setup =====
 
 int setup_shared_memory(int* shm_id, SharedData** shared_data) {
@@ -160,7 +168,7 @@ void wait_for_workers(SharedData* shared_data, int sem_id, int num_workers) {
             break;
         }
         
-        usleep(1000); // 1ms
+        msleep(1); // 1ms sleep
     }
     
     // Reset for next generation
@@ -170,7 +178,7 @@ void wait_for_workers(SharedData* shared_data, int sem_id, int num_workers) {
     sem_signal(sem_id, 0);
 }
 
-// ===== Worker Process (ACTUALLY DOES WORK NOW!) =====
+// ===== Worker Process =====
 
 void worker_process(int worker_id, int shm_id, int sem_id, 
                    const Grid* grid, const Config* config) {
@@ -201,7 +209,7 @@ void worker_process(int worker_id, int shm_id, int sem_id,
         }
         
         if (!work_ready) {
-            usleep(10000); // 10ms - wait for work
+            msleep(10); // 10ms - wait for work
             continue;
         }
         
@@ -298,7 +306,7 @@ void terminate_workers(pid_t* worker_pids, int num_workers) {
     free(worker_pids);
 }
 
-// ===== Parallel Fitness Evaluation (NEW FUNCTION) =====
+// ===== Parallel Fitness Evaluation =====
 
 void parallel_evaluate_fitness(Path** population, int pop_size,
                               const Grid* grid, const Config* config,
