@@ -83,6 +83,7 @@ Config* load_config(const char* filename);
 Config* create_default_config();
 void print_config(const Config* config);
 void free_config(Config* config);
+int validate_config(Config* config);
 
 // Utility functions
 int random_int(int min, int max);
