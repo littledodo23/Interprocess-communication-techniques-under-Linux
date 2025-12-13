@@ -1,41 +1,39 @@
 # ===================================================
 # Genetic Algorithm Rescue Operations Configuration
+# BIGGER TEST CASE
 # ===================================================
 
-# Grid Settings
-GRID_X=15
-GRID_Y=15
-GRID_Z=4
-NUM_SURVIVORS=8
-OBSTACLE_PERCENT=25
+# Grid Settings - BIGGER GRID
+GRID_X=25
+GRID_Y=25
+GRID_Z=6
+NUM_SURVIVORS=18
+OBSTACLE_PERCENT=30
 START_X=0
 START_Y=0
 START_Z=0
 
-# Genetic Algorithm Parameters
-POPULATION_SIZE=50
-MAX_GENERATIONS=100
-MUTATION_RATE=0.05
+# Genetic Algorithm Parameters - MORE POPULATION
+POPULATION_SIZE=100
+MAX_GENERATIONS=150
+MUTATION_RATE=0.06
 CROSSOVER_RATE=0.85
 ELITISM_PERCENT=10
 TOURNAMENT_SIZE=5
 
 # Fitness Function Weights (Applied to normalized [0,1] values)
-# f = w1*survivors + w2*coverage - w3*length - w4*risk
-# All components are normalized to [0,1] before applying weights
 W1_SURVIVORS=15.0
 W2_COVERAGE=8.0
 W3_LENGTH=1.5
 W4_RISK=3.0
 
-# Multi-Processing Settings
-# Number of worker processes for parallel fitness evaluation
-NUM_WORKERS=4
+# Multi-Processing Settings - MORE WORKERS
+NUM_WORKERS=8
 
 # Termination Criteria
-STAGNATION_LIMIT=20
-TIME_LIMIT=300
+STAGNATION_LIMIT=30
+TIME_LIMIT=600
 
 # Output Settings
-VERBOSE=1
+VERBOSE=0
 SAVE_STATS=1
